@@ -26,4 +26,12 @@ class Todo {
     completedAt: completedAt,
   );
 
+  String about() {
+   return """
+       id: $id
+       description: $description
+       completeAt: $completedAt
+     """;
+  }
+
 }

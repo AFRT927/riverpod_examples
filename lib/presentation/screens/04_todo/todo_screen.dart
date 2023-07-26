@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_app/config/helpers/random_generator.dart';
+import 'package:riverpod_app/domain/entities/todo.dart';
+import 'package:riverpod_app/presentation/providers/providers.dart';
 
 
-class TodoScreen extends StatelessWidget {
+class TodoScreen extends ConsumerWidget {
   const TodoScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+
+    final todoList = ref.watch(todosProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('State Provider + Providers'),
@@ -13,18 +20,28 @@ class TodoScreen extends StatelessWidget {
       body: const _TodoView(),
       floatingActionButton: FloatingActionButton(
         child: const Icon( Icons.add ),
-        onPressed: () {},
+        onPressed: () {
+          ref.read(todosProvider.notifier).update((state) => [
+            ...todoList,
+            Todo(id: uuid.v4(), description: RandomGenerator.getRandomName(), completedAt: null)
+          ]);
+        },
       ),
     );
   }
 }
 
 
-class _TodoView extends StatelessWidget {
+class _TodoView extends ConsumerWidget {
   const _TodoView();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+
+    final currentFilter = ref.watch(todoFilterProvider);
+    final todoList = ref.watch(todosProvider);
+    final filteredTodos = ref.watch(filteredTodosProvider);
+
     return Column(
       children: [
         const ListTile(
@@ -34,13 +51,18 @@ class _TodoView extends StatelessWidget {
 
         SegmentedButton(
           segments: const[
-            ButtonSegment(value: 'all', icon: Text('Todos')),
-            ButtonSegment(value: 'completed', icon: Text('Invitados')),
-            ButtonSegment(value: 'pending', icon: Text('No invitados')),
+            ButtonSegment(value: TodoFilter.all, icon: Text('Todos')),
+            ButtonSegment(value: TodoFilter.completed, icon: Text('Invitados')),
+            ButtonSegment(value: TodoFilter.pending, icon: Text('No invitados')),
           ], 
-          selected: const <String>{ 'all' },
+          selected: <TodoFilter>{ currentFilter },
           onSelectionChanged: (value) {
-            
+            /**
+             * cuando se actualizan estados del tipo enum, es mas
+             * facil hacerlo con la notacion .state
+             */
+            ref.read(todoFilterProvider.notifier).state = value.first;       
+            //ref.read(filteredTodosProvider.notifier).update((state) => todoList.);     
           },
         ),
         const SizedBox( height: 5 ),
@@ -48,11 +70,19 @@ class _TodoView extends StatelessWidget {
         /// Listado de personas a invitar
         Expanded(
           child: ListView.builder(
+            itemCount: filteredTodos.length,
             itemBuilder: (context, index) {
               return SwitchListTile(
-                title: const Text('Juan carlos'),
-                value: true, 
-                onChanged: ( value ) {}
+                title: Text(filteredTodos[index].description),
+                value: filteredTodos[index].done, 
+                onChanged: ( value ) {
+                  ref.read(todosProvider.notifier).update((state) => todoList.map((t) {
+                    if(t.id == filteredTodos[index].id ){
+                        return t.copyWith(completedAt: t.done ? null : DateTime.now());
+                    }
+                    return t;
+                  }).toList());
+                }
               );
             },
           ),
